@@ -25,7 +25,7 @@ import os
 sys.path.insert(0, '..')
 import test_harness
 
-DEBUG = False
+DEBUG = True
 CONTROL_PORT = 8541
 
 # JTAG instructions
@@ -101,10 +101,16 @@ class DebugConnection(object):
         self.sock.close()
 
     def jtag_transfer(self, instruction_length, instruction, data_length, data):
+        if DEBUG:
+            print('Sending JTAG command 0x{:x} data 0x{:x}'.format(instruction, data))
+
         self.sock.send(struct.pack('<BIBQ', instruction_length, instruction,
                                    data_length, data))
-        data_val = struct.unpack('<Q', self.sock.recv(8))[0]
-        return data_val & ((1 << data_length) - 1)
+        data_val = struct.unpack('<Q', self.sock.recv(8))[0] & ((1 << data_length) - 1)
+        if DEBUG:
+            print('received JTAG response 0x{:x}'.format(data_val))
+
+        return data_val
 
 @test_harness.test
 def jtag(_):
