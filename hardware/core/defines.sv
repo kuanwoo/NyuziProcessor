@@ -180,7 +180,8 @@ typedef enum logic [4:0] {
     CR_INTERRUPT_MASK       = 5'd14,
     CR_INTERRUPT_ACK        = 5'd15,
     CR_INTERRUPT_PENDING    = 5'd16,
-    CR_INTERRUPT_TRIGGER    = 5'd17
+    CR_INTERRUPT_TRIGGER    = 5'd17,
+    CR_JTAG_DATA            = 5'd18
 } control_register_t;
 
 // Trap type encodings

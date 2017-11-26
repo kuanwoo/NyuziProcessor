@@ -51,8 +51,19 @@ module core
     output logic                           ior_request_valid,
     output ioreq_packet_t                  ior_request,
 
+    // From debug_controller
+    input                                  dbg_halt,
+    input local_thread_idx_t               dbg_thread,
+    input core_id_t                        dbg_core,
+    input scalar_t                         dbg_instruction_inject,
+    input                                  dbg_instruction_inject_en,
+    input scalar_t                         dbg_data_from_host,
+    output scalar_t                        cr_data_to_host,
+
     // To performance_counters
     output logic [CORE_PERF_EVENTS - 1:0]  core_perf_events);
+
+    logic core_selected_debug;
 
     /*AUTOLOGIC*/
     // Beginning of automatic wires (for undeclared instantiated-module outputs)
@@ -354,6 +365,8 @@ module core
     ) control_registers(.*);
     l1_l2_interface #(.CORE_ID(CORE_ID)) l1_l2_interface(.*);
     io_request_queue #(.CORE_ID(CORE_ID)) io_request_queue(.*);
+
+    assign core_selected_debug = CORE_ID == dbg_core;
 
     // The number of signals in this assignment must match CORE_PERF_EVENTS
     // in defines.sv.

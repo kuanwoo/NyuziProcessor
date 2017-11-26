@@ -25,9 +25,17 @@ import os
 sys.path.insert(0, '..')
 import test_harness
 
-
-DEBUG = True
+DEBUG = False
 CONTROL_PORT = 8541
+
+# JTAG instructions
+INST_EXTEST = 0
+INST_IDCODE = 1
+INST_CONTROL = 2
+INST_INJECT_INST = 3
+INST_READ_DATA = 4
+INST_WRITE_DATA = 5
+INST_BYPASS = 6
 
 class VerilatorProcess(object):
 
@@ -103,7 +111,14 @@ def jtag(_):
     hexfile = test_harness.build_program(['test_program.S'])
 
     with VerilatorProcess(hexfile), DebugConnection() as conn:
-        print('response1: ' + hex(conn.jtag_transfer(4, 0xa, 32, 0x12345678)))
-        print('response2: ' + hex(conn.jtag_transfer(4, 0x3, 32, 0xdeadbeef)))
+        conn.jtag_transfer(4, INST_CONTROL, 7, 0x1)
+        conn.jtag_transfer(4, INST_WRITE_DATA, 32, 0x3b643e9a)  # First value to transfer
+        conn.jtag_transfer(4, INST_INJECT_INST, 32, 0xac0000b2) # getcr s5, 18
+        conn.jtag_transfer(4, INST_WRITE_DATA, 32, 0xd1dc20a3)  # Second value to transfer
+        conn.jtag_transfer(4, INST_INJECT_INST, 32, 0xac0000d2) # getcr s6, 18
+        conn.jtag_transfer(4, INST_INJECT_INST, 32, 0xc03300e5) # xor s7, s5, s6
+        conn.jtag_transfer(4, INST_INJECT_INST, 32, 0x8c0000f2) # setcr s7, 18
+        if conn.jtag_transfer(4, INST_READ_DATA, 32, 0) != 0xeab81e39:
+            raise test_harness.TestException('read value mismatch');
 
 test_harness.execute_tests()
