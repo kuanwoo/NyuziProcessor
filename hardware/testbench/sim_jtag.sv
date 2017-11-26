@@ -15,9 +15,9 @@
 //
 
 import "DPI-C" function int init_jtag_socket(input int port);
-import "DPI-C" function int poll_jtag_message(output logic[31:0] instructionLength,
-    output logic[31:0] instruction, output logic[31:0] dataLength, output logic[63:0] data);
-import "DPI-C" function int send_jtag_response(input logic[63:0] data);
+import "DPI-C" function int poll_jtag_message(output bit[31:0] instructionLength,
+    output bit[31:0] instruction, output bit[31:0] dataLength, output bit[63:0] data);
+import "DPI-C" function int send_jtag_response(input bit[63:0] data);
 
 //
 // This simulates a JTAG host. It proxies messages from an external test program

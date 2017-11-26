@@ -96,7 +96,7 @@ class DebugConnection(object):
         self.sock.send(struct.pack('<BIBQ', instruction_length, instruction,
                                    data_length, data))
         data_val = struct.unpack('<Q', self.sock.recv(8))[0]
-        return data_val & ((2 << data_length) - 1)
+        return data_val & ((1 << data_length) - 1)
 
 @test_harness.test
 def jtag(_):
