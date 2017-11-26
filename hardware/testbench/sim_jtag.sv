@@ -55,12 +55,12 @@ module sim_jtag
     localparam CLOCK_DIVISOR = 7;
 
     int control_port_open;
-    int instruction_length;
-    logic[MAX_INSTRUCTION_LEN - 1:0] instruction_shift;
-    int data_length;
-    logic[MAX_DATA_LEN - 1:0] data_shift;
-    logic[MAX_INSTRUCTION_LEN - 1:0] instruction;
-    logic[MAX_DATA_LEN - 1:0] data;
+    bit[31:0] instruction_length;
+    bit[MAX_INSTRUCTION_LEN - 1:0] instruction;
+    bit[31:0] data_length;
+    bit[MAX_DATA_LEN - 1:0] data;
+    bit[MAX_INSTRUCTION_LEN - 1:0] instruction_shift;
+    bit[MAX_DATA_LEN - 1:0] data_shift;
     int shift_count;
     jtag_state_t state_ff = JTAG_RESET;
     jtag_state_t state_nxt;

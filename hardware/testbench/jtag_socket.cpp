@@ -145,7 +145,6 @@ extern int poll_jtag_message(svBitVecVal* instructionLength, svBitVecVal* instru
     // XXX assumes a little endian machine
     *instructionLength = messageBuffer[0];
     memcpy(instruction, messageBuffer + 1, 4);
-    *instruction = messageBuffer[1];
     *dataLength = messageBuffer[5];
     memcpy(data, messageBuffer + 6, 8);
 
