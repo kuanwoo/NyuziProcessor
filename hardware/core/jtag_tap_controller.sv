@@ -63,7 +63,8 @@ module jtag_tap_controller
     jtag_state_t state_ff;
     jtag_state_t state_nxt;
     logic last_tck;
-    logic jtag_clock_pulse;
+    logic jtag_rising_edge;
+    logic jtag_falling_edge;
 
     always_comb
     begin
@@ -152,7 +153,14 @@ module jtag_tap_controller
         endcase
     end
 
-    assign jtag_clock_pulse = !last_tck && jtag.tck;
+    assign jtag_rising_edge = !last_tck && jtag.tck;
+    assign jtag_falling_edge = last_tck && !jtag.tck;
+
+    assign update_ir = state_ff == JTAG_UPDATE_IR && jtag_rising_edge;
+    assign update_dr = state_ff == JTAG_UPDATE_DR && jtag_rising_edge;
+    assign shift_dr = state_ff == JTAG_SHIFT_DR && jtag_rising_edge;
+    assign capture_dr = state_ff == JTAG_CAPTURE_DR && jtag_rising_edge;
+
 
     always_ff @(posedge clk, posedge reset)
     begin
@@ -161,46 +169,27 @@ module jtag_tap_controller
             state_ff <= JTAG_RESET;
             /*AUTORESET*/
             // Beginning of autoreset for uninitialized flops
-            capture_dr <= '0;
             instruction <= '0;
+            jtag.tdo <= '0;
             last_tck <= '0;
-            update_dr <= '0;
-            update_ir <= '0;
             // End of automatics
         end
         else if (jtag.trst)
-        begin
             state_ff <= JTAG_RESET;
-            update_ir <= 0;
-            update_dr <= 0;
-            capture_dr <= 0;
-        end
         else
         begin
             last_tck <= jtag.tck;
-            if (!last_tck && jtag.tck)
+            if (jtag_rising_edge)
             begin
                 // Rising edge of JTAG clock
                 state_ff <= state_nxt;
                 if (state_ff == JTAG_SHIFT_IR)
                     instruction <= { jtag.tdi, instruction[INSTRUCTION_WIDTH - 1:1] };
-
-                update_ir <= state_ff == JTAG_UPDATE_IR;
-                update_dr <= state_ff == JTAG_UPDATE_DR;
-                shift_dr <= state_ff == JTAG_SHIFT_DR;
-                capture_dr <= state_ff == JTAG_CAPTURE_DR;
             end
-            else if (last_tck && !jtag.tck)
+            else if (jtag_falling_edge)
             begin
                 // Falling edge of JTAG clock
                 jtag.tdo <= state_ff == JTAG_SHIFT_IR ? instruction[0] : data_shift_val;
-            end
-            else
-            begin
-                update_ir <= 0;
-                update_dr <= 0;
-                capture_dr <= 0;
-                shift_dr <= 0;
             end
         end
     end

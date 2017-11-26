@@ -227,17 +227,20 @@ module soc_tb(
 
     // XXX debug. Shift in data and display to verify this is working.
     logic[31:0] data_shift;
-    always @(posedge clk)
+    always @(posedge clk, posedge reset)
     begin
-        if (shift_dr)
-            data_shift <= { jtag1.tdo, data_shift[31:1] };
+        if (!reset)
+        begin
+            if (shift_dr)
+                data_shift <= { jtag1.tdo, data_shift[31:1] };
 
-        if (capture_dr)
-            data_shift <= 32'h8badf00d;
+            if (capture_dr)
+                data_shift <= 32'h8badf00d;
 
-        if (update_dr)
-            $display("soc_tb: received instruction %x data %x", instruction,
-                data_shift);
+            if (update_dr)
+                $display("soc_tb: received instruction %x data %x", instruction,
+                    data_shift);
+        end
     end
 
     assign data_shift_val = data_shift[0];

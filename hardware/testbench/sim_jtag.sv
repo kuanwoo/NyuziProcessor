@@ -62,9 +62,10 @@ module sim_jtag
     logic[MAX_INSTRUCTION_LEN - 1:0] instruction;
     logic[MAX_DATA_LEN - 1:0] data;
     int shift_count;
-    jtag_state_t current_state = JTAG_RESET;
-    jtag_state_t next_state;
+    jtag_state_t state_ff = JTAG_RESET;
+    jtag_state_t state_nxt;
     int divider_count;
+    logic tms_nxt;
 
     initial
     begin
@@ -88,22 +89,25 @@ module sim_jtag
             divider_count <= divider_count - 1;
     end
 
+    // Set up outgoing signals on falling edge
     always @(negedge jtag.tck)
     begin
-        if (current_state == JTAG_SHIFT_DR)
+        if (state_ff == JTAG_SHIFT_DR)
             jtag.tdo <= data_shift[0];
         else
             jtag.tdo <= instruction_shift[0];
+
+        jtag.tms <= tms_nxt;
     end
 
     always @(posedge jtag.tck, posedge reset)
     begin
         if (reset)
-            current_state <= JTAG_RESET;
+            state_ff <= JTAG_RESET;
         else
         begin
-            current_state <= next_state;
-            case (current_state)
+            state_ff <= state_nxt;
+            case (state_ff)
                 JTAG_CAPTURE_DR:
                 begin
                     shift_count <= data_length;
@@ -118,20 +122,16 @@ module sim_jtag
 
                 JTAG_SHIFT_DR:
                 begin
-                    // XXX the data_length + 1 seems like it's
-                    // masking a bug somewhere else
                     data_shift <= (data_shift >> 1) | (MAX_DATA_LEN'(jtag.tdi)
-                        << (data_length + 1));
+                        << (data_length - 1));
                     shift_count <= shift_count - 1;
                 end
 
                 JTAG_SHIFT_IR:
                 begin
-                    // XXX the instruction_length + 1 seems like it's
-                    // masking a bug somewhere else
                     instruction_shift <= (instruction_shift >> 1)
                         | (MAX_INSTRUCTION_LEN'(jtag.tdi)
-                        << (instruction_length + 1));
+                        << (instruction_length - 1));
                     shift_count <= shift_count - 1;
                 end
             endcase
@@ -140,14 +140,14 @@ module sim_jtag
 
     always_comb
     begin
-        next_state = current_state;
+        state_nxt = state_ff;
         jtag.trst = 0;
-        case (current_state)
+        case (state_ff)
             JTAG_RESET:
             begin
                 jtag.trst = 1;
-                next_state = JTAG_IDLE;
-                jtag.tms = 0;  // Go to idle state
+                state_nxt = JTAG_IDLE;
+                tms_nxt = 0;  // Go to idle state
             end
 
             JTAG_IDLE:
@@ -156,122 +156,122 @@ module sim_jtag
                 begin
                     if (poll_jtag_message(instruction_length, instruction, data_length, data) != 0)
                     begin
-                        next_state = JTAG_SELECT_DR_SCAN1;
-                        jtag.tms = 1;
+                        state_nxt = JTAG_SELECT_DR_SCAN1;
+                        tms_nxt = 1;
                     end
                     else
-                        jtag.tms = 0;
+                        tms_nxt = 0;
                 end
                 else
-                    jtag.tms = 0;
+                    tms_nxt = 0;
             end
 
             // First time we go through this state, we jump to IR scan to load
             // the instruction
             JTAG_SELECT_DR_SCAN1:
             begin
-                next_state = JTAG_SELECT_IR_SCAN;
-                jtag.tms = 1;
+                state_nxt = JTAG_SELECT_IR_SCAN;
+                tms_nxt = 1;
             end
 
             // Go through this state again and go through the DR load
             JTAG_SELECT_DR_SCAN2:
             begin
-                next_state = JTAG_CAPTURE_DR;
-                jtag.tms = 0;
+                state_nxt = JTAG_CAPTURE_DR;
+                tms_nxt = 0;
             end
 
             JTAG_CAPTURE_DR:
             begin
-                next_state = JTAG_SHIFT_DR;
-                jtag.tms = 0;
+                state_nxt = JTAG_SHIFT_DR;
+                tms_nxt = 0;
             end
 
             JTAG_SHIFT_DR:
             begin
-                if (shift_count == 0)
+                if (shift_count == 1)
                 begin
-                    jtag.tms = 1;
-                    next_state = JTAG_EXIT1_DR;
+                    tms_nxt = 1;
+                    state_nxt = JTAG_EXIT1_DR;
                 end
                 else
-                    jtag.tms = 0;
+                    tms_nxt = 0;
             end
 
             JTAG_EXIT1_DR:
             begin
-                jtag.tms = 0;
-                next_state = JTAG_PAUSE_DR;
+                tms_nxt = 0;
+                state_nxt = JTAG_PAUSE_DR;
             end
 
             JTAG_PAUSE_DR:
             begin
-                jtag.tms = 1;
-                next_state = JTAG_EXIT2_DR;
+                tms_nxt = 1;
+                state_nxt = JTAG_EXIT2_DR;
             end
 
             JTAG_EXIT2_DR:
             begin
-                jtag.tms = 1;
-                next_state = JTAG_UPDATE_DR;
+                tms_nxt = 1;
+                state_nxt = JTAG_UPDATE_DR;
             end
 
             JTAG_UPDATE_DR:
             begin
-                jtag.tms = 0;
+                tms_nxt = 0;
                 send_jtag_response(data_shift);
-                next_state = JTAG_IDLE;
+                state_nxt = JTAG_IDLE;
             end
 
             JTAG_SELECT_IR_SCAN:
             begin
-                jtag.tms = 0;
-                next_state = JTAG_CAPTURE_IR;
+                tms_nxt = 0;
+                state_nxt = JTAG_CAPTURE_IR;
             end
 
             JTAG_CAPTURE_IR:
             begin
-                jtag.tms = 0;
-                next_state = JTAG_SHIFT_IR;
+                tms_nxt = 0;
+                state_nxt = JTAG_SHIFT_IR;
             end
 
             JTAG_SHIFT_IR:
             begin
-                if (shift_count == 0)
+                if (shift_count == 1)
                 begin
-                    jtag.tms = 1;
-                    next_state = JTAG_EXIT1_IR;
+                    tms_nxt = 1;
+                    state_nxt = JTAG_EXIT1_IR;
                 end
                 else
-                    jtag.tms = 0;
+                    tms_nxt = 0;
             end
 
             JTAG_EXIT1_IR:
             begin
-                jtag.tms = 0;
-                next_state = JTAG_PAUSE_IR;
+                tms_nxt = 0;
+                state_nxt = JTAG_PAUSE_IR;
             end
 
             JTAG_PAUSE_IR:
             begin
-                jtag.tms = 1;
-                next_state = JTAG_EXIT2_IR;
+                tms_nxt = 1;
+                state_nxt = JTAG_EXIT2_IR;
             end
 
             JTAG_EXIT2_IR:
             begin
-                jtag.tms = 1;
-                next_state = JTAG_UPDATE_IR;
+                tms_nxt = 1;
+                state_nxt = JTAG_UPDATE_IR;
             end
 
             JTAG_UPDATE_IR:
             begin
-                jtag.tms = 1;
-                next_state = JTAG_SELECT_DR_SCAN2;
+                tms_nxt = 1;
+                state_nxt = JTAG_SELECT_DR_SCAN2;
             end
 
             default:
-                next_state = JTAG_RESET;
+                state_nxt = JTAG_RESET;
         endcase
     end
 endmodule
