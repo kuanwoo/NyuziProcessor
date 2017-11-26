@@ -461,4 +461,15 @@ interface axi4_interface;
         output s_awready, s_wready, s_bvalid, s_arready, s_rvalid, s_rdata);
 endinterface
 
+interface jtag_interface;
+    logic tck;
+    logic trst;
+    logic tdi;
+    logic tdo;
+    logic tms;
+
+    modport master(input tdi, output tck, trst, tdo, tms);
+    modport slave(input tck, trst, tdo, tms, output tdi);
+endinterface
+
 `endif

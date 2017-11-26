@@ -49,6 +49,9 @@ module soc_tb(
     logic sd_sclk;
     io_bus_interface peripheral_io_bus[NUM_PERIPHERALS - 1:0]();
     io_bus_interface nyuzi_io_bus();
+    jtag_interface jtag1();
+    jtag_interface jtag2();
+    logic data_shift_val;
     scalar_t peripheral_read_data[NUM_PERIPHERALS];
 `ifdef VCS
     enum logic[$clog2(NUM_PERIPHERALS) - 1:0] {
@@ -81,6 +84,7 @@ module soc_tb(
 
     /*AUTOLOGIC*/
     // Beginning of automatic wires (for undeclared instantiated-module outputs)
+    logic               capture_dr;             // From jtag_tap_controller of jtag_tap_controller.v
     logic [12:0]        dram_addr;              // From sdram_controller of sdram_controller.v
     logic [1:0]         dram_ba;                // From sdram_controller of sdram_controller.v
     logic               dram_cas_n;             // From sdram_controller of sdram_controller.v
@@ -90,13 +94,17 @@ module soc_tb(
     logic               dram_ras_n;             // From sdram_controller of sdram_controller.v
     logic               dram_we_n;              // From sdram_controller of sdram_controller.v
     logic               frame_interrupt;        // From vga_controller of vga_controller.v
+    logic [3:0]         instruction;            // From jtag_tap_controller of jtag_tap_controller.v
     logic               perf_dram_page_hit;     // From sdram_controller of sdram_controller.v
     logic               perf_dram_page_miss;    // From sdram_controller of sdram_controller.v
     logic               processor_halt;         // From nyuzi of nyuzi.v
     logic               ps2_clk;                // From sim_ps2 of sim_ps2.v
     logic               ps2_data;               // From sim_ps2 of sim_ps2.v
     logic               sd_do;                  // From sim_sdmmc of sim_sdmmc.v
+    logic               shift_dr;               // From jtag_tap_controller of jtag_tap_controller.v
     logic               timer_interrupt;        // From timer of timer.v
+    logic               update_dr;              // From jtag_tap_controller of jtag_tap_controller.v
+    logic               update_ir;              // From jtag_tap_controller of jtag_tap_controller.v
     logic [7:0]         vga_b;                  // From vga_controller of vga_controller.v
     logic               vga_blank_n;            // From vga_controller of vga_controller.v
     logic               vga_clk;                // From vga_controller of vga_controller.v
@@ -201,6 +209,39 @@ module soc_tb(
     timer #(.BASE_ADDRESS('h240)) timer(
         .io_bus(peripheral_io_bus[IO_TIMER]),
         .*);
+
+`ifdef VERILATOR
+    sim_jtag sim_jtag(
+        .jtag(jtag1),
+        .*);
+
+    assign jtag1.tdi = jtag2.tdo;
+    assign jtag2.tdi = jtag1.tdo;
+    assign jtag2.tck = jtag1.tck;
+    assign jtag2.trst = jtag1.trst;
+    assign jtag2.tms = jtag1.tms;
+
+    jtag_tap_controller #(.INSTRUCTION_WIDTH(4)) jtag_tap_controller(
+        .jtag(jtag2),
+        .*);
+
+    // XXX debug. Shift in data and display to verify this is working.
+    logic[31:0] data_shift;
+    always @(posedge clk)
+    begin
+        if (shift_dr)
+            data_shift <= { jtag1.tdo, data_shift[31:1] };
+
+        if (capture_dr)
+            data_shift <= 32'h8badf00d;
+
+        if (update_dr)
+            $display("soc_tb: received instruction %x data %x", instruction,
+                data_shift);
+    end
+
+    assign data_shift_val = data_shift[0];
+`endif
 
 `ifdef SIMULATE_VGA
    // There is no automated test for VGA currently, so I test as follows:
