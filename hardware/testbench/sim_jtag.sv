@@ -69,9 +69,12 @@ module sim_jtag
 
     initial
     begin
-        int jtag_port;
+	// XXX workaround: if jtag_port is less than 64 bits, the
+	// generated program will crash with a stack clobber assert.
+	// This happens even if jtag port is a module level variable.
+        logic[63:0] jtag_port;
         if ($value$plusargs("jtag_port=%d", jtag_port) != 0)
-            control_port_open = init_jtag_socket(jtag_port);
+            control_port_open = init_jtag_socket(32'(jtag_port));
         else
             control_port_open = 0;
     end

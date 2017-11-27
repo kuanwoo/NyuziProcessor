@@ -25,7 +25,7 @@ import os
 sys.path.insert(0, '..')
 import test_harness
 
-DEBUG = True
+DEBUG = False
 CONTROL_PORT = 8541
 
 # JTAG instructions
